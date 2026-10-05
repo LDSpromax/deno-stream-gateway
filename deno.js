@@ -62,8 +62,9 @@ Deno.serve({ port: Number(Deno.env.get("PORT") || 8080) }, async (req) => {
     return new Response("gateway online", { status: 404 });
   }
 
-  // ---- WebSocket streaming endpoint: /stream ----
-  if (url.pathname !== "/stream") return new Response("not found", { status: 404 });
+  // ---- WebSocket streaming endpoint: /stream (filtered) or /all (any backend) ----
+  if (url.pathname !== "/stream" && url.pathname !== "/all") return new Response("not found", { status: 404 });
+  const allowAll = url.pathname === "/all";
   const { socket: ws, response } = Deno.upgradeWebSocket(req);
   let backend = null;
 
@@ -78,7 +79,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") || 8080) }, async (req) => {
       if (typeof ev.data !== "string") return cleanup();
       let init;
       try { init = JSON.parse(ev.data); } catch { return cleanup(); }
-      if (!AUTH_TOKEN || init.k !== AUTH_TOKEN || !domainAllowed(init.h)) {
+      if (!AUTH_TOKEN || init.k !== AUTH_TOKEN || (!allowAll && !domainAllowed(init.h))) {
         ws.send(JSON.stringify({ ok: false, error: "unauthorized" }));
         return cleanup();
       }
